@@ -1,5 +1,6 @@
 #ifndef CALCULATE_RS_H
 #define CALCULATE_RS_H
+#include <omp.h>
 #include "common.h"
 #include "opencv2/opencv.hpp"
 #include "opencv2/core/core.hpp"
@@ -9,41 +10,82 @@ using namespace std;
 class CcalculateRS
 {
 
-typedef CFace Face;
+	typedef CFace Face;
 public:
-	
+
 	CcalculateRS(){};
 	CcalculateRS(const CcalculateRS&){}
 	CcalculateRS& operator=(const CcalculateRS){}
 	~CcalculateRS(){};
 
-	static void calc(Face& f1, Face& f2, double Rotaion_Step = 0.5, double Scale_Step = 0.01, double Scale_Range=0.5)
+	static Face calc(const Face& f1, const Face& f2, double Rotaion_Step = 1.0, int Rotation_Range = 45, double Scale_Step = 0.05, double Scale_Range = 0.2)
 	{
-
 		if (f1.size() == 0 || f1.size() != f2.size())
 			Error("Empty faceLandmark or sizes of two landmarks didn't match!");
-		Face faces[2];
-		faces[0] = f1;
-		faces[1] = f2;
-		faces[0].normalize_to_center();
-		faces[1].normalize_to_center();
-		const Face target = faces[1];
-		Face bestFace = faces[0];
-		for (double r = 80; r <= 100; r += Rotaion_Step)
+		cout << "Rotation Step Size:" << Rotaion_Step << " Rotation Range: +-" << Rotation_Range << "  Scale Step Size: " << Scale_Step << "  Scale Range: +-" << Scale_Range * 100 << "%" << endl;
+		const Face modify = f1;
+		const Face target = f2;
+		Face bestFace = modify;
+		int rec = 0;
+		static const int rangeI = Rotation_Range * 10;
+#pragma omp parallel for
+		for (int ri = -rangeI; ri <= rangeI; ri += Rotaion_Step * 10)
 		{
-			for (double s = 1 - Scale_Range; s <= 1 + Scale_Range; s += Scale_Step)
+			double r = ri;
+			r /= 10;
+			for (double sx = 1 - Scale_Range; sx <= 1 + Scale_Range; sx += Scale_Step)
 			{
-				Face temp = faces[0];
-				temp.transform(r, s);
-				temp.calcDiff(target);
-				bestFace = (bestFace.diff <= temp.diff) ? bestFace : temp;
+
+				for (double sy = 1 - Scale_Range; sy <= 1 + Scale_Range; sy += Scale_Step)
+				{
+					//pgTimer;
+					Face temp = modify;
+					temp.transform(r, Face::lmPoint(sx, sy));
+					temp.calcDiff(target);
+					bestFace = (bestFace.diff <= temp.diff) ? bestFace : temp;
+					//pgTimer;
+				}
+
+			}
+//#pragma omp critical
+//			{
+//				rec++;
+//				cout << "\rprogress: " << rec << "/" << Rotation_Range * 2 / Rotaion_Step + 1 << std::flush;
+//			}
+
+		}
+		cout << endl << "Best: " << bestFace.theta << " " << bestFace.scale << " " << bestFace.diff << endl;;
+		return bestFace;
+	}
+
+
+
+	static Face calc2(const Face& f1, const Face& f2, double Rotaion_Step = 1.0, int Rotation_Range = 45, double Scale_Step = 0.02, double Scale_Range = 0.2, bool recu = false)
+	{
+		static double rotationStep = 1;
+		const Face modify = f1;
+		const Face target = f2;
+		Face bestFace = modify;
+		for (int r = -Rotation_Range; r <= Rotation_Range; r += Rotation_Range / 5)
+		{
+			for (double sx = 1 - Scale_Range; sx <= 1 + Scale_Range; sx += Scale_Range / 5)
+			{
+				for (double sy = 1 - Scale_Range; sy <= 1 + Scale_Range; sy += Scale_Range / 5)
+				{
+
+					Face temp = modify;
+					temp.transform(r, Face::lmPoint(sx, sy));
+					temp.calcDiff(target);
+					bestFace = (bestFace.diff <= temp.diff) ? bestFace : temp;
+				}
 			}
 		}
-		cout << "Best: " << bestFace.theta << " " << bestFace.scale << " " << bestFace.diff << endl;;
+		cout << endl << "Best: " << bestFace.theta << " " << bestFace.scale << " " << bestFace.diff << endl;
+		return bestFace;
 	}
 private:
-	
-	
+
+
 
 };
 #endif
