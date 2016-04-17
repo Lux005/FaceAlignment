@@ -28,7 +28,7 @@ public:
 		Face bestFace = modify;
 		int rec = 0;
 		static const int rangeI = Rotation_Range * 10;
-#pragma omp parallel for
+		#pragma omp parallel for
 		for (int ri = -rangeI; ri <= rangeI; ri += Rotaion_Step * 10)
 		{
 			double r = ri;
