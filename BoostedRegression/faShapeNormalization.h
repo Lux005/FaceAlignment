@@ -149,7 +149,7 @@ public:
 	}
 
 
-	static void setMeanShape(Shape & mShape)
+	static void setMeanShape(const Shape & mShape)
 	{
 		if (mShape.cols != 1 || mShape.rows == 0)
 			MyError("Invalid Mean Shape");
@@ -162,7 +162,7 @@ public:
 		return meanShape;
 	}
 
-	static ShapeNormalizer GenShapeNormalizer(Shape& shape)
+	static ShapeNormalizer GenShapeNormalizer(const Shape& shape)
 	{
 		Face face, mFace, rFace;
 		//face.loadPoints(shape);
@@ -172,7 +172,7 @@ public:
 		return rFace.normalzier;
 
 	}
-	static void setMs(vector<Shape> &vec_Shape)
+	static void setMs(const vector<Shape> &vec_Shape)
 	{
 		const int N = vec_Shape.size();
 		if (N <= 0)

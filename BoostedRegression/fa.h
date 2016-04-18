@@ -93,7 +93,7 @@ namespace fa
 	//---------	class Declarations
 
 
-
+	class Initializer;
 	class ExplicitShapeRegression;
 	class LearnStageRegressor;
 	class ShapeNormalziation;
@@ -151,6 +151,10 @@ namespace fa
 		vector<InternalRegressor> r;
 		//Local Coordinate lc[0,P)
 		vector<LocalCoordinate> lc;
+		Shape apply(pair<Image, Shape>& is)
+		{
+			return  is.second;
+		}
 	};
 
 
@@ -217,11 +221,37 @@ namespace fa
 			Mat pmT = transMat.inv()*pm;
 			return(Point2f(pmT.at<float>(0, 0), pmT.at<float>(1, 0)));
 		}
+		Shape transform(const Shape&s)
+		{
+			Mat pm = ShapeToTmat(s);
+			Mat pmT = transMat*pm;
+			return TmatToShape(pmT);
+		}
 		Shape invTransform(const Shape&s)
 		{
-			Mat pm = (Mat_<float>(3, 1) << p.x, p.y, 1.0f);
+			Mat pm = ShapeToTmat(s);
 			Mat pmT = transMat.inv()*pm;
-			return(Point2f(pmT.at<float>(0, 0), pmT.at<float>(1, 0)));
+			return TmatToShape(pmT);
+		}
+		static Mat ShapeToTmat(const Shape&s)
+		{
+			Mat pm = Mat::ones(3, s.cols / 2, CV_32FC1);
+			for (int i = 0; i < s.cols / 2; i++)
+			{
+				pm.at<float>(i, 0) = s.at<float>(i * 2, 0);
+				pm.at<float>(i, 1) = s.at<float>(i * 2 + 1, 0);
+				pm.at<float>(i, 2) = 1.0f;
+			}
+			return pm;
+		}
+		static Shape TmatToShape(const Mat& m)
+		{
+			Shape rs = Mat::zeros(1,m.cols*2,CV_32FC1);
+			for (int i = 0; i < m.cols; i++)
+			{
+				rs.at<float>(i * 2, 0) = m.at<float>(i, 0);
+				rs.at<float>(i * 2 + 1, 0) = m.at<float>(i, 1);
+			}
 		}
 	};
 

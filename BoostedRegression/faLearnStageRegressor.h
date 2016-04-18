@@ -276,7 +276,7 @@ public:
 
 
 
-	static Mat ApplyInternalRegressor(const InternalRegressor& reg, const Mat & pmf_pnf)
+	static Shape ApplyInternalRegressor(const InternalRegressor& reg, const Mat & pmf_pnf)
 	{
 		if (reg.mn.size() != pmf_pnf.cols || pmf_pnf.cols != reg.theta.cols)
 			MyError("Invalid Size!");
@@ -289,7 +289,7 @@ public:
 		}
 		const Mat &yb = reg.yb;
 		const Mat &threshold = reg.theta;
-		Mat rY = Mat::zeros(pmf_pnf.rows, yb.cols, CV_32FC1);
+		Shape rY = Mat::zeros(pmf_pnf.rows, yb.cols, CV_32FC1);
 
 		for (int i = 0; i < pmf_pnf.rows; i++)
 		{
@@ -309,6 +309,31 @@ public:
 		return rY;
 	}
 
+	static Shape ApplyStageRegressor(const StageRegressor& reg, const Image& i, const Shape& s)
+	{
+		ShapeIndexedPixels matP;
+		vector<ImageAndShape> vec_is;
+		vec_is.push_back(ImageAndShape(i, s));
+	
+		ExtractShapeIndexedPixels(matP, vec_is, reg.lc);
+		Shape rS = Mat::zeros(s.rows,s.cols,CV_32FC1);
+		const int K = reg.r.size();
+		for (int k = 0; k < K;k++)
+		{
+			const InternalRegressor& r = reg.r[k];
+			const int F = r.mn.size();
+
+			Mat pmf_pnf = Mat::zeros(1, F, CV_32FC1);
+			for (int f = 0; f < F; f++)
+			{
+				pmf_pnf.at<float>(f, 0) = matP.at<float>(0, r.mn[f].first) - matP.at<float>(0, r.mn[f].second);
+			}
+			rS += ApplyInternalRegressor(r, pmf_pnf);
+
+		}
+
+		return rS;
+	}
 
 
 
@@ -316,7 +341,7 @@ public:
 
 
 
-	static void GetLearnStageRegressor(StageRegressor&  SR, const Mat _Y, const Vec_ImageAndShape& _imageShapes, const TrainParams& _trainParams)
+	static void GenLearnStageRegressor(StageRegressor&  SR, const Mat _Y, const Vec_ImageAndShape& _imageShapes, const TrainParams& _trainParams)
 	{
 
 		//training images and corresponding estimated shapes 
