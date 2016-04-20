@@ -68,7 +68,7 @@ public:
 			lc.dl.x = (rand() % (2 * _k + 1)) - _k;
 			lc.dl.y = (rand() % (2 * _k + 1)) - _k;
 			veclc[alpha] = lc;
-			cout << lc;
+		//	cout << lc;
 		}
 	}
 
@@ -98,9 +98,12 @@ public:
 				const Image & image = vecISpair[i].first;
 				const Shape & shape = vecISpair[i].second;
 				const LocalCoordinate & lc = vecLocCoord[a];
-				Point2f m_dl = ShapeNormalziation::getMs()[i].invTransform(lc.dl);
-				Point2f u = ShapeNormalziation::getShapePoint(shape, lc.la) + m_dl;
-				matP.at<float>(a, i) = image.at<float>(u);
+				Point2f m_dl = ShapeNormalization::getMs()[i].invTransform(lc.dl);
+				Point2f u = getShapePoint(shape, lc.la) ;
+				u.x *= image.cols;
+				u.y *= image.rows;
+				u += m_dl;
+				matP.at<float>(i,a) = image.at<float>(u);
 			}
 		}
 	}
@@ -134,7 +137,7 @@ public:
 		Xmatrix = Mat::zeros(N, pow(P, 2), CV_32FC1);
 		vector<int> v1;
 		int diff, count = 0;
-
+		v1.reserve(N*pow(P, 2));
 		for (int x = 0; x < mat_q.rows; x++){
 			for (int yy1 = 0; yy1 < mat_q.cols; yy1++){
 				for (int yy2 = 0; yy2 < mat_q.cols; yy2++){
@@ -326,7 +329,7 @@ public:
 			Mat pmf_pnf = Mat::zeros(1, F, CV_32FC1);
 			for (int f = 0; f < F; f++)
 			{
-				pmf_pnf.at<float>(f, 0) = matP.at<float>(0, r.mn[f].first) - matP.at<float>(0, r.mn[f].second);
+				pmf_pnf.at<float>(0, f) = matP.at<float>(0, r.mn[f].first) - matP.at<float>(0, r.mn[f].second);
 			}
 			rS += ApplyInternalRegressor(r, pmf_pnf);
 
@@ -389,13 +392,13 @@ public:
 
 		//
 		GenLocalCoordinates(vec_LocCoords,Nfp, P, k);
-		
+		MyDebug("GenLocalCoordinates");
 		//
 		ExtractShapeIndexedPixels(matP, vec_ImageShape, vec_LocCoords);
-		
+		MyDebug("ExtractShapeIndexedPixels");
 		//
 		GenPixelPixelCovariance(covP, matP);
-		
+		MyDebug("GenPixelPixelCovariance");
 		
 		//
 		vec_InternalR.clear();

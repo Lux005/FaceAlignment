@@ -12,7 +12,7 @@ class fa::CorrelationBasedFeatureSelection{
 //Declaration
 public:
 	int patch_size;
-	int * X_sotrted_index;
+	int * X_sotrted_index=nullptr;
 	struct CBFSR{
 		Mat bestFerns;
 		vector<pair<int, int>> mns;
@@ -33,7 +33,7 @@ public:
 
 fa::CorrelationBasedFeatureSelection::CorrelationBasedFeatureSelection()
 {
-	X_sotrted_index = new int[10000];
+
 	patch_size = 10;
 }
 fa::CorrelationBasedFeatureSelection::~CorrelationBasedFeatureSelection()
@@ -43,10 +43,13 @@ fa::CorrelationBasedFeatureSelection::~CorrelationBasedFeatureSelection()
 void fa::CorrelationBasedFeatureSelection::buildFeatureSelection(const Mat&_Y, const Mat& _X, const int _F, CBFSR &result)
 {
 	cout << "[FeatureSelection] Feature selection start" << endl;
+	if (X_sotrted_index != nullptr)
+		delete[] X_sotrted_index;
+	X_sotrted_index = new int[_X.cols];
 	Mat Yprob = Mat::zeros(_Y.rows, 1, CV_32FC1);
 	//cout << _Y.cols / 2 << endl;
 	Yprob = _Y * GenrandnGaussian(_Y.cols / 2);
-	cout << Yprob << endl;
+	//cout << Yprob << endl;
 	NCCMatch(Yprob, _X);
 	for (int j = 0; j < _F; j++){
 		//int index = X_sotrted_index[j];
@@ -75,7 +78,7 @@ void fa::CorrelationBasedFeatureSelection::NCCMatch(Mat _Yprob, Mat _X){
 	float temp;
 
 	matchTemplate(_X, _Yprob, result, CV_TM_CCORR_NORMED);
-	cout << result << endl;
+	//cout << result << endl;
 	for (int j = 0; j < result.cols; j++)
 	{
 		X_sotrted_index[j] = j;

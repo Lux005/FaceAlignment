@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <windows.h>
 #include <opencv2\opencv.hpp>
 #include <opencv2\core\core.hpp>
@@ -17,7 +18,9 @@ using std::cerr;	using std::endl;
 #define MyError(x) {\
 	std::cerr << "_ERROR_ " << __FILE__ << " Line:" << __LINE__ << std::endl; \
 	std::cerr << "        " << x << std::endl; \
-	throw x; \
+	std::ostringstream  ss; \
+	ss << x; \
+	throw ss.str(); \
 	system("Pause"); \
 	exit(-1); \
 }
@@ -26,7 +29,19 @@ using std::cerr;	using std::endl;
 #define MyWarning(x) {\
 	std::cerr << "_WARNNING_ " << __FILE__ << " Line:" << __LINE__ << std::endl; \
 	std::cerr << "           " << x << std::endl; \
-	throw x; \
+	std::ostringstream  ss; \
+	ss << x;\
+	throw ss.str(); \
+}
+#endif
+#ifndef MyDebug(x)
+static bool MY_DEBUG_INFO = true;
+#define MyDebug(x) {\
+if (MY_DEBUG_INFO)\
+{\
+	std::cerr << "_DEBUG_INFO_ " << __FILE__ << " Line:" << __LINE__ << std::endl; \
+		std::cerr << "           " << x << std::endl; \
+}\
 }
 #endif
 #ifndef MyTimer

@@ -96,7 +96,7 @@ namespace fa
 	class Initializer;
 	class ExplicitShapeRegression;
 	class LearnStageRegressor;
-	class ShapeNormalziation;
+	class ShapeNormalization;
 	class CorrelationBasedFeatureSelection;
 
 
@@ -114,10 +114,65 @@ namespace fa
 	struct InternalRegressor;
 	struct StageRegressor;
 	
+	//------------
+	//---------- stataic Functions
 
-
-
-
+	static Point2f getShapePoint(const Shape &  s, const int i)
+	{
+		if (s.cols<= 0 || s.rows != 1 || i * 2 +1 > s.cols || s.cols % 2 == 1||i*2<0)
+			MyError("out of range");
+		return(Point2f(s.at<float>(0, i * 2), s.at<float>(0, i * 2 + 1)));
+	}
+	static void setShapePoint(Shape &  s, const Point2f& p, const int i)
+	{
+		if (s.cols <= 0 || s.rows != 1 || i * 2 + 1 > s.cols || s.cols % 2 == 1 || i * 2<0)
+			MyError("out of range");
+		s.at<float>(0, i * 2) = p.x;
+		s.at<float>( 0, i * 2 + 1) = p.y;
+	}
+	static Mat ShapeToTmat(const Shape&s)
+	{
+		Mat pm = Mat::ones(3, s.cols / 2, CV_32FC1);
+		for (int i = 0; i < s.cols / 2; i++)
+		{
+			pm.at<float>(0, i) = s.at<float>(0,i * 2);
+			pm.at<float>(1, i) = s.at<float>(0, i * 2 + 1);
+			pm.at<float>(2, i) = 1.0f;
+		}
+		return pm;
+	}
+	static Shape TmatToShape(const Mat& m)
+	{
+		Shape rs = Mat::zeros(1, m.cols * 2, CV_32FC1);
+		for (int i = 0; i < m.cols; i++)
+		{
+			rs.at<float>(0, i * 2) = m.at<float>(0,i);
+			rs.at<float>(0, i * 2+1) = m.at<float>(1,i);
+		}
+		return rs;
+	}
+	static void ShowImageAndShape(const ImageAndShape& is,const string &windowName="Show Image and Shape")
+	{
+		const Image &image = is.first;
+		const Shape &shape = is.second;
+		Image sim = image;
+		for (int i = 0; i < shape.cols / 2; i++)
+		{
+			cv::circle(sim, cv::Point(shape.at<float>(0, i * 2)*image.cols, shape.at<float>(0, i * 2 + 1)*image.rows), 1, cv::Scalar(255, 255,255));
+		}
+		cv::imshow(windowName, sim);
+		cv::waitKey(10);
+	}
+	static void ShowShape(const Shape& shape, const string windowName="Show Shape",const int width = 100, const int height = 100)
+	{
+		Image sim = Mat::zeros(height,width, CV_32FC1);
+		for (int i = 0; i < shape.cols / 2; i++)
+		{
+			cv::circle(sim, cv::Point(shape.at<float>(0, i * 2)*sim.cols, shape.at<float>(0, i * 2 + 1)*sim.rows), 1, cv::Scalar(255, 255, 255));
+		}
+		cv::imshow(windowName, sim);
+		cv::waitKey(10);
+	}
 	//---------	Sturcture Definitions
 
 
@@ -184,7 +239,8 @@ namespace fa
 		LocalCoordinate(int _l, Point2f _dl) :la(_l), dl(_dl){};
 		friend ostream& operator << (ostream& os, const LocalCoordinate& lc)
 		{
-			os << "landmark:" << lc.l << " local coordinate:(" << lc.dl.x << "," << lc.dl.y << ")";
+			os << "landmark:" << lc.la << " local coordinate:(" << lc.dl.x << "," << lc.dl.y << ")";
+			return os;
 		}
 	};
 
@@ -201,13 +257,20 @@ namespace fa
 		float theta;
 		float scale;
 		TransMat2D transMat;
-		ShapeNormalizer(float _theta = 0, float _scale = 0) :theta(_theta), scale(_scale)
+		ShapeNormalizer(float _theta = 0, float _scale = 1) :theta(_theta), scale(_scale)
 		{
 			transMat = Mat::zeros(3, 3, CV_32FC1);
 			Mat tm = getRotationMatrix2D(Point2f(0, 0), theta, scale);
-			transMat.row(0) = tm.row(0);
-			transMat.row(1) = tm.row(1);
+
+			transMat.at<float>(0, 0) = tm.at<double>(0, 0);
+			transMat.at<float>(0, 1) = tm.at<double>(0, 1);
+			transMat.at<float>(0, 2) = tm.at<double>(0, 2);
+			transMat.at<float>(1, 0) = tm.at<double>(1, 0);
+			transMat.at<float>(1, 1) = tm.at<double>(1, 1);
+			transMat.at<float>(1, 2) = tm.at<double>(1, 2);
+
 			transMat.at<float>(2, 2) = 1.0f;
+
 		}
 		Point2f transform(const Point2f &p)
 		{
@@ -233,39 +296,9 @@ namespace fa
 			Mat pmT = transMat.inv()*pm;
 			return TmatToShape(pmT);
 		}
-		static Mat ShapeToTmat(const Shape&s)
-		{
-			Mat pm = Mat::ones(3, s.cols / 2, CV_32FC1);
-			for (int i = 0; i < s.cols / 2; i++)
-			{
-				pm.at<float>(i, 0) = s.at<float>(i * 2, 0);
-				pm.at<float>(i, 1) = s.at<float>(i * 2 + 1, 0);
-				pm.at<float>(i, 2) = 1.0f;
-			}
-			return pm;
-		}
-		static Shape TmatToShape(const Mat& m)
-		{
-			Shape rs = Mat::zeros(1,m.cols*2,CV_32FC1);
-			for (int i = 0; i < m.cols; i++)
-			{
-				rs.at<float>(i * 2, 0) = m.at<float>(i, 0);
-				rs.at<float>(i * 2 + 1, 0) = m.at<float>(i, 1);
-			}
-		}
 	};
 
 	
-
-
-
-
-
-
-	//---------- stataic Functions
-
-
-
 	
 
 }

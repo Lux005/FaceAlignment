@@ -1,29 +1,31 @@
 ﻿#include "common.h"
 #include <opencv2\opencv.hpp>
 #include <opencv2\core\core.hpp>
-#include "iostream"
-#include <string>
-#include <math.h>
-
+#include "fa.h"
+#include "faInitializer.h"
+#include "faShapeNormalization.h"
+#include "faExplicitShapeRegression.h"
 
 //#include "LearnStageRegressor.h"
 
 using namespace cv;
 using namespace std;
+using namespace fa;
+const string listFileName = "faceList.txt";
+
 int main()
 {
-	//Mat Y = Mat::ones(1, 4, CV_32FC1);
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	Y.at<float>(i / 4, i % 4) = 10;
-	//}
-	//Mat X = Mat::ones(1, 10000, CV_32FC1);
-	//for (int i = 0; i < 10000; i++)
-	//{
-	//	X.at<float>(0, i) = i % 256;
-	//}
-	//CBFSR result[5];
-	//CBFS cbtest;
-	//cbtest.buildFeatureSelection(Y, X, 5,result);
-	//return 0;
+	vector<ImageAndShape> imageShapes;
+	vector<Shape> initSet;
+	Shape meanShape;
+	Initializer::loadImageAndShape(imageShapes, initSet, meanShape, listFileName);
+	ShapeNormalization::setMeanShape(meanShape);
+	vector<StageRegressor> stageRegressors;
+	ExplicitShapeRegression::TrainParams tp;
+	//Initial Shapes per Image;
+	tp.Naug = 5;
+	//Number of Stage Regressors;
+	tp.T = 10;
+	ExplicitShapeRegression::ESRTraining(stageRegressors, imageShapes, tp, initSet);
+
 }
