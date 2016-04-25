@@ -27,9 +27,9 @@ class fa::ExplicitShapeRegression
 			LearnStageRegressor::TrainParams lTp;
 			lTp.Nfp = Nfp;
 			lTp.F = 5;
-			lTp.K = 50;//default 500
+			lTp.K = 500;//default 500
 			lTp.k = 10;
-			lTp.P = 40;//default 400
+			lTp.P = 400;//default 400
 
 
 			vector<ImageShapeAndShape> imageShapeShapes;
@@ -71,8 +71,42 @@ class fa::ExplicitShapeRegression
 				{
 					Shape stemp = LearnStageRegressor::ApplyStageRegressor(Rt, imageShapes[i].first, St_1[i]);
 					St[i] = St_1[i] + ShapeNormalization::getMs()[i].invTransform(stemp);
+					ShowImageAndShape(ImageAndShape(imageShapes[i].first, St[i])); 
 				}
 				MyDebug("Stage Regressor:"<< t+1 <<"/"<<tp.T<<" Complelted!");
+			}
+		}
+
+		static void ESRTesting(Image &img, vector<StageRegressor>& R, int Nint, const vector<Shape>& initSet)
+		{
+			vector<ImageShapeAndShape> imageShapeShapes;
+			vector<ImageAndShape> imageShapes;
+			Shape s=Mat::zeros(1,initSet[0].cols,CV_32FC1);
+			imageShapes.push_back(ImageAndShape(img, s));
+			initialization(imageShapeShapes, imageShapes, Nint, initSet);
+			vector<vector<Shape>> S(R.size() + 1);
+			vector<Shape> S0(Nint);
+			for (int i = 0; i<Nint; i++)
+			{
+				S0[i] = imageShapeShapes[i].second;
+
+			}
+			S[0] = S0;
+			for (int t = 0; t < R.size();t++)
+			{
+				StageRegressor &Rt = R[t];
+				const vector<Shape>& St_1 = S[t];
+				ShapeNormalization::setMs(St_1);
+				vector<Shape> &St = S[t + 1];
+				St.clear();
+				St.resize(Nint);
+				for (int i = 0; i<Nint; i++)
+				{
+					Shape stemp = LearnStageRegressor::ApplyStageRegressor(Rt, imageShapeShapes[i].first.first, St_1[i]);
+					St[i] = St_1[i] + ShapeNormalization::getMs()[i].invTransform(stemp);
+					ShowImageAndShape(ImageAndShape(imageShapes[i].first, St[i]));
+					waitKey(2000);
+				}
 			}
 		}
 
@@ -101,6 +135,7 @@ class fa::ExplicitShapeRegression
 			}
 			img_array = imageShapes;
 		}
+
 
 };
 #endif 

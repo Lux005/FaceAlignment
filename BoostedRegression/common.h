@@ -14,6 +14,7 @@
 #include <opencv2\core\core.hpp>
 using std::cin;		using std::cout;
 using std::cerr;	using std::endl;
+using std::string;
 #ifndef MyError(x)
 #define MyError(x) {\
 	std::cerr << "_ERROR_ " << __FILE__ << " Line:" << __LINE__ << std::endl; \

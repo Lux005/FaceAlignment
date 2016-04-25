@@ -11,7 +11,7 @@ using namespace std;
 using namespace cv;
 class fa::Initializer
 {
-#define NUMBER_OF_POSE 5
+#define NUMBER_OF_POSE 20
 #define ENLARGE_FACTOR 0.3
 public:
 	static void loadImageAndShape(vector<ImageAndShape>& imageShapes, vector<Shape>& initSet,Shape& meanShape, const string& fileName)
@@ -40,7 +40,7 @@ public:
 			loadShapes(shapes, posePath, POSE_FILE_SHAPE_POSTFIX);
 			loadImages(images, posePath, POSE_FILE_IMAGE_POSTFIX);
 			Normalize(images,shapes);
-			ShowImageAndShape(ImageAndShape(images[0],shapes[0]));
+			ShowImageAndShape(ImageAndShape(images[0],shapes[0]),"ImageAndShape");
 			
 			for (int i = 0; i < NUMBER_OF_POSE; i++)
 			{
@@ -48,6 +48,7 @@ public:
 			}
 			cout << "\rloading files...." << i + 1 << "/" << dataList.size();
 		}
+		cv::destroyWindow("ImageAndShape");
 		cout << endl;
 		if (dataList.size()*NUMBER_OF_POSE != imageShapes.size())
 			MyError("Incorrect Size of the images and shapes." << imageShapes.size());
@@ -118,6 +119,8 @@ public:
 				else
 				{
 					fy = 1.0 - fy;
+					if (fx<0||fy<0)
+						MyError("Invalid data at line:" << line);
 					shape.at<float>(0, 2 * scount) = fx;
 					shape.at<float>(0, 2 * scount + 1) = fy;
 					scount++;

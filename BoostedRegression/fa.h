@@ -67,12 +67,15 @@ namespace fa
 	typedef Mat ShapeIndexedPixels;
 
 
-	//N * P^2 
+	//P*P 
 	//Matrix: Pairwise Difference Cov(p)
 	//CV_32FC1
 	typedef Mat PixelPixelCovariance;
 
-
+	//N * P^2 
+	//Matrix: Pairwise Difference pm-pn
+	//CV_32FC1
+	typedef Mat PixelPixelDiff;
 
 	//pair->first  = Image, CV_32FC1, 
 	//pair->second = Shape, CV_32FC1
@@ -98,6 +101,7 @@ namespace fa
 	class LearnStageRegressor;
 	class ShapeNormalization;
 	class CorrelationBasedFeatureSelection;
+	class FileIO;
 
 
 
@@ -155,7 +159,8 @@ namespace fa
 	{
 		const Image &image = is.first;
 		const Shape &shape = is.second;
-		Image sim = image;
+		Image sim ;
+		image.copyTo(sim);
 		for (int i = 0; i < shape.cols / 2; i++)
 		{
 			cv::circle(sim, cv::Point(shape.at<float>(0, i * 2)*image.cols, shape.at<float>(0, i * 2 + 1)*image.rows), 1, cv::Scalar(255, 255,255));
@@ -259,18 +264,11 @@ namespace fa
 		TransMat2D transMat;
 		ShapeNormalizer(float _theta = 0, float _scale = 1) :theta(_theta), scale(_scale)
 		{
-			transMat = Mat::zeros(3, 3, CV_32FC1);
+			transMat=Mat::zeros(3, 3, CV_32FC1);
 			Mat tm = getRotationMatrix2D(Point2f(0, 0), theta, scale);
-
-			transMat.at<float>(0, 0) = tm.at<double>(0, 0);
-			transMat.at<float>(0, 1) = tm.at<double>(0, 1);
-			transMat.at<float>(0, 2) = tm.at<double>(0, 2);
-			transMat.at<float>(1, 0) = tm.at<double>(1, 0);
-			transMat.at<float>(1, 1) = tm.at<double>(1, 1);
-			transMat.at<float>(1, 2) = tm.at<double>(1, 2);
-
+			tm.row(0).copyTo(transMat.row(0));
+			tm.row(1).copyTo(transMat.row(1));
 			transMat.at<float>(2, 2) = 1.0f;
-
 		}
 		Point2f transform(const Point2f &p)
 		{

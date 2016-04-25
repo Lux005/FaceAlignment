@@ -28,7 +28,10 @@ private:
 		}
 		Face(const Face& f)
 		{
+			normalzier = f.normalzier;
 			f.shape.copyTo(shape);
+			diff = f.diff;
+			center = f.center;
 		}
 
 		Face(Shape& s) :shape(s)
@@ -163,7 +166,7 @@ public:
 	static ShapeNormalizer GenShapeNormalizer(const Shape& shape)
 	{
 		Face face, mFace, rFace;
-		face.shape = shape;
+		shape.copyTo(face.shape);
 		face.setCenter(-1);
 		mFace.shape = getMeanShape();
 		mFace.setCenter(-1);
@@ -181,14 +184,15 @@ public:
 		if (N <= 0)
 			MyError("Empty Shape.");
 		vec_Ms.clear();
-		vec_Ms.resize(N);
+		vec_Ms.reserve(N);
 		cout << "calculating Normalizer...";
 		for (int i = 0; i < N; i++)
 		{
-			vec_Ms[i] = GenShapeNormalizer(vec_Shape[i]);
-			cout << "\rcalculating Normalizer..." << i + 1 << "/" << N << "  Best: " << vec_Ms[i].theta << " " << vec_Ms[i].scale ;
+			vec_Ms.push_back (GenShapeNormalizer(vec_Shape[i]));
+			if (N>100&&i%(N/100)==0)
+				cout << "\r" << i / (N / 100) << "% calculating Normalizer..." << i + 1 << " / " << N << "  Best theta:"<<vec_Ms[i].theta << " Best scale:" << vec_Ms[i].scale ;
 		}
-		cout << endl;
+		cout << "\r 100% calculating Normalizer..." << N << " / " << N <<endl;
 	}
 	static vector<ShapeNormalizer>& getMs()
 	{
@@ -199,7 +203,7 @@ public:
 
 
 
-	static Face searchBestNormalizer(const Face& modifyFace, const Face& targetFace, double Rotaion_Step = 1, int Rotation_Range = 2, double Scale_Step = 0.05, double Scale_Range = 0.1)
+	static Face searchBestNormalizer(const Face& modifyFace, const Face& targetFace, double Rotaion_Step = 3, int Rotation_Range = 3, double Scale_Step = 0.1, double Scale_Range = 0.2)
 	{
 		if (modifyFace.shape.rows == 0 || modifyFace.shape.rows != targetFace.shape.rows)
 			MyError("Empty face shape or sizes of two shape didn't match!");
@@ -219,15 +223,15 @@ public:
 			for (double s = 1 - Scale_Range; s <= 1 + Scale_Range; s += Scale_Step)
 			{
 				//pgTimer;
-				Face temp;
-				#pragma omp critical
-				{
-					temp = Face(modify);
-				}
+				Face temp(modify);
+			
 				temp.transform(r, s);
 				temp.calcDiff(target);
 				//temp.drawFace("xx1", temp);
+#pragma omp critical
+				{
 				bestFace = (bestFace.diff <= temp.diff) ? bestFace : temp;
+				}
 				//pgTimer;
 			}
 			//#pragma omp critical

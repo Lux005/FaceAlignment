@@ -7,6 +7,7 @@
 #define _LEARNSTAGEREGRESSOR_H_
 #include "common.h"
 #include <ctime>
+#include "omp.h"
 #include "fa.h"
 #include "faShapeNormalization.h"
 #include "faCorrelationBasedFeatureSelection.h"
@@ -17,8 +18,6 @@ public:
 	typedef vector<LocalCoordinate> Vec_LocalCoordinate;
 	//{Ii,Si}, [0,N)
 	typedef vector<ImageAndShape> Vec_ImageAndShape;
-
-	
 
 	struct TrainParams;
 
@@ -61,6 +60,7 @@ public:
 		veclc.clear();
 		veclc.resize(_P);
 		srand((unsigned)time(NULL));
+#pragma omp parallel for
 		for (int alpha = 0; alpha < _P; alpha++)
 		{
 			LocalCoordinate lc;
@@ -70,6 +70,7 @@ public:
 			veclc[alpha] = lc;
 		//	cout << lc;
 		}
+		
 	}
 
 
@@ -91,6 +92,7 @@ public:
 		if (P == 0 || N==0)
 			MyError("Invalid size");
 		matP = Mat::zeros(N, P, CV_32FC1);
+#pragma omp parallel for
 		for (int i = 0; i < N; i++)
 		{
 			for (int a = 0; a < P; a++)
@@ -103,6 +105,11 @@ public:
 				u.x *= image.cols;
 				u.y *= image.rows;
 				u += m_dl;
+				if (u.x < 0 || u.y < 0)
+				{
+					cout << shape;
+					MyError("invalid data");
+				}
 				matP.at<float>(i,a) = image.at<float>(u);
 			}
 		}
@@ -113,44 +120,36 @@ public:
 
 
 
+	static void GenPixelPixelCovariance(PixelPixelCovariance& _covP, const ShapeIndexedPixels & _matP)
+	{
+		int P = _matP.cols;
+		int N = _matP.rows;
+		Mat mean;
+		calcCovarMatrix(_matP, _covP, mean, CV_COVAR_NORMAL | CV_COVAR_ROWS,CV_32FC1);
+	}
 
 
-
-	//void GenPixelPixelCovariance(
-	//	PixelPixelCovariance& _X,  <--output N * P^2, 32FC1
+	//void GenPixelPixelDiff(
+	//	PixelPixelDiff& _X,  <--output N * P^2, 32FC1
 	//	const ShapeIndexedPixels & _matP
 	//	)
-	static void GenPixelPixelCovariance(PixelPixelCovariance& _X, const ShapeIndexedPixels & _matP)
+	static void GenPixelPixelDiff(PixelPixelDiff& _X, const ShapeIndexedPixels & _matP)
 	{
 		int P = _matP.cols;
 		int N = _matP.rows;
 		PixelPixelCovariance &Xmatrix = _X;
-		const ShapeIndexedPixels &mat_q = _matP;
-
-		//test mat_q
-		//mat_q = Mat::zeros(N, P, CV_32FC1);					
-		//for (int ii = 0; ii < P; ii++)
-		//{
-		//	mat_q.at<rMatValueType>((int)ii%P, ii) = ii + 1;
-		//}
-
+		const ShapeIndexedPixels &mat_q=_matP;
+		vector<float> v1;
 		Xmatrix = Mat::zeros(N, pow(P, 2), CV_32FC1);
-		vector<int> v1;
-		int diff, count = 0;
-		v1.reserve(N*pow(P, 2));
-		for (int x = 0; x < mat_q.rows; x++){
+#pragma omp parallel for
 			for (int yy1 = 0; yy1 < mat_q.cols; yy1++){
-				for (int yy2 = 0; yy2 < mat_q.cols; yy2++){
-					diff = mat_q.at<float>(x, yy1) - mat_q.at<float>(x, yy2);
-					v1.push_back(diff);
+				for (int yy2 = 0; yy2 <=yy1; yy2++){
+					Mat diff = mat_q.col(yy1) - mat_q.col(yy2);
+					diff.copyTo(Xmatrix.col(yy1*P + yy2));
+					diff *= -1;
+					diff.copyTo(Xmatrix.col(yy2*P + yy1));
 				}
 			}
-		}
-		cv::MatIterator_<float> it1, end1;
-		for (it1 = Xmatrix.begin<float>(), end1 = Xmatrix.end<float>(); it1 != end1; ++it1){
-			*it1 = v1[count];
-			count++;
-		}
 	}
 
 
@@ -161,14 +160,13 @@ public:
 	//	)
 
 
-	static void GenThreshold(Mat & thres, const int _F)
+	static void GenThreshold(Mat & thres, const int _F, const float a=-0.3, const float b=0.3)
 	{
 		thres = Mat(1, _F, CV_32FC1);
 		srand((unsigned)time(NULL));
-		int a = -255, b = 255;
 		for (int i = 0; i < _F; i++)
 		{
-			thres.at<float>(0, i) = (float)(rand() % (b - a + 1)) + a;
+			thres.at<float>(0, i) = (float)rand() / (float)(RAND_MAX)*2-1.0f;
 		}
 	}
 
@@ -186,14 +184,15 @@ public:
 	static void PartitionSamples(vector<vector<int>> & partition, const Mat difference, const Mat threshold, const int _F)
 	{
 		partition.clear();
-		partition.resize((int)pow(2, _F));
+		partition.resize(pow(2, _F));
 		if (difference.cols>sizeof(int)* 8)
-		{
 			MyError("exceed the range of int.");
-		}
+		//cout << threshold << endl;
 		for (int i = 0; i < difference.rows; i++)
 		{
 			int temp_bin_num = 0;
+			//cout << difference.row(i) << endl;
+			//cout << threshold << endl;
 			for (int j = 0; j < difference.cols; j++)
 			{
 				if (difference.at<float>(i, j) >= threshold.at<float>(0, j))
@@ -201,6 +200,7 @@ public:
 					temp_bin_num |= 1 << j;
 				}
 			}
+			//cout << temp_bin_num << endl;
 			partition[temp_bin_num].push_back(i);
 		}
 	}
@@ -221,6 +221,7 @@ public:
 		long fPow2 = pow(2, _F);
 		Mat final_Yb_v = Mat::zeros(fPow2, Y.cols, CV_32FC1);
 		//Mat zero_temp = Mat::zeros(1, Y.cols, CV_32FC1);
+#pragma omp parallel for
 		for (int i = 0; i < fPow2; i++){
 			//	final_Yb_v.row(i) = zero_temp.row(0);
 			if (partition[i].size() != 0)
@@ -228,7 +229,8 @@ public:
 				for (vector<int>::const_iterator iter = partition[i].begin(); iter != partition[i].end(); ++iter){
 					final_Yb_v.row(i) += Y.row(*iter);
 				}
-				final_Yb_v = (1 / (1 + beta / partition[i].size())) * (final_Yb_v / partition[i].size());
+				Mat Ybrow = (1 / (1 + beta / partition[i].size())) * (final_Yb_v.row(i) / partition[i].size());
+				Ybrow.row(0).copyTo(final_Yb_v.row(i)) ;
 			}
 		}
 		return final_Yb_v;
@@ -247,24 +249,30 @@ public:
 	//	const int F, 
 	//	const int ik <--ik=[1,K]
 	//	)
-	static void GenInternalRegressor(InternalRegressor& regressor, vector<RegressionTargets>  &vecY, const PixelPixelCovariance &covP, const int F, const int ik)
+	static void GenInternalRegressor(InternalRegressor& regressor, vector<RegressionTargets>  &vecY, const ShapeIndexedPixels& matP, const PixelPixelCovariance &covP, const PixelPixelDiff &X, const int F, const int P, const int ik)
 	{
 		vector<float> theta;
 		CorrelationBasedFeatureSelection featureSelection;
-		CorrelationBasedFeatureSelection::CBFSR cbfsR(covP.rows, F, CV_32FC1);
+		CorrelationBasedFeatureSelection::CBFSR cbfsR(matP.rows, F, CV_32FC1);
 		vector<vector<int>> partitions;
-		featureSelection.buildFeatureSelection(vecY[ik - 1], covP, F, cbfsR);
+		
+		featureSelection.buildFeatureSelection(vecY[ik - 1], matP, covP, X, F, P, cbfsR);
 		Mat pmf_pnf = cbfsR.bestFerns;
 
 		Mat threshold;
+	
 		GenThreshold(threshold, F);
+
 		PartitionSamples(partitions, cbfsR.bestFerns, threshold, F);
 		//
+		
 		regressor.mn = cbfsR.mns;
 		regressor.theta = threshold;
-		regressor.yb = ComputeBins(partitions, vecY[ik], F);
+		regressor.yb = ComputeBins(partitions, vecY[ik-1], F);
 		//
+
 		Mat rk = ApplyInternalRegressor(regressor, pmf_pnf);
+	
 		if (rk.cols == vecY[ik - 1].cols && rk.rows == vecY[ik - 1].rows)
 		{
 			vecY[ik] = vecY[ik - 1] - rk;
@@ -294,6 +302,7 @@ public:
 		const Mat &threshold = reg.theta;
 		Shape rY = Mat::zeros(pmf_pnf.rows, yb.cols, CV_32FC1);
 
+#pragma omp parallel for
 		for (int i = 0; i < pmf_pnf.rows; i++)
 		{
 			int temp_bin_num = 0;
@@ -346,7 +355,7 @@ public:
 
 	static void GenLearnStageRegressor(StageRegressor&  SR, const Mat _Y, const Vec_ImageAndShape& _imageShapes, const TrainParams& _trainParams)
 	{
-
+		//cout << _imageShapes[0].second;
 		//training images and corresponding estimated shapes 
 		//{Ii,Si},[0,N)
 		const Vec_ImageAndShape& vec_ImageShape = _imageShapes;
@@ -382,7 +391,8 @@ public:
 
 		//P * P CV_32FC1
 		PixelPixelCovariance covP;
-
+		//N* P^2 CV_32FC1
+		PixelPixelDiff X;
 		//(N * 2Nfp Matix)[0,K] size=K+1
 		vector<RegressionTargets>  vecY;
 		vecY.clear();
@@ -391,24 +401,30 @@ public:
 
 
 		//
-		GenLocalCoordinates(vec_LocCoords,Nfp, P, k);
 		MyDebug("GenLocalCoordinates");
-		//
-		ExtractShapeIndexedPixels(matP, vec_ImageShape, vec_LocCoords);
-		MyDebug("ExtractShapeIndexedPixels");
-		//
-		GenPixelPixelCovariance(covP, matP);
-		MyDebug("GenPixelPixelCovariance");
+		GenLocalCoordinates(vec_LocCoords,Nfp, P, k);
 		
+		//
+		MyDebug("ExtractShapeIndexedPixels");
+		ExtractShapeIndexedPixels(matP, vec_ImageShape, vec_LocCoords);
+		
+		//
+		MyDebug("GenPixelPixelDiff");
+		//GenPixelPixelDiff(X, matP);
+		GenPixelPixelCovariance(covP,matP);
+	
 		//
 		vec_InternalR.clear();
 		vec_InternalR.resize(K);
-		
+		MyDebug("GenInternalRegressor");
 		//
+		cout << "computing Internal Regressors...";
 		for (int ik = 0; ik < K; ik++)
 		{
 			//
-			GenInternalRegressor(vec_InternalR[ik], vecY, covP, F, ik + 1);
+			cout << "\rComputing Internal Regressors " << ik + 1 << "/" << K<< " Step: 0";
+			GenInternalRegressor(vec_InternalR[ik], vecY, matP,covP,X, F, P,ik + 1);
+			
 		}
 
 		//
